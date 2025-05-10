@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title> pilot experiment Dutch version</title>
+	<script src="jspsych/jspsych.js"></script>
+	<script src="jspsych/plugins/jspsych-html-keyboard-response.js"></script>
+	<script src="jspsych/plugins/jspsych-survey-text.js"></script>
+	<script src="jspsych/plugins/jspsych-survey-multi-choice.js"></script>		
+	<script src="jspsych/plugins/jspsych-image-button-response.js"></script>
+	<script src="jspsych/plugins/jspsych-instructions.js"></script>
+    <script src="jspsych/plugins/jspsych-call-function.js"></script>
+    <script src="jspsych/plugins/jspsych-survey-likert.js"></script>
+	<script src="stimuliList_BE_2601.js"></script>
+	<script src="instructions_BE.js"></script>
+	<script src="bowser.js"></script>
+	<script src="seedrandom/seedrandom.min.js"></script>
+	<link href="jspsych/css/jspsych.css" rel="stylesheet">
+	<style>
+		.InstrBx {max-width: 70vw; max-height: 100%;}
+		#leftPrompt{position:absolute; bottom:18vw; left:42vw; font-size: 30px;}
+		#rightPrompt{position:absolute; bottom:18vw; right:42vw; font-size: 30px;}
+		#taskCue{height:120px; width:150px; border: 3px solid #000000;}
+		#instructionFrame{width:800px; text-align: left; line-break: normal;}
+		ul.a {
+		  list-style-type: disc;
+		}		
+	</style>
+</head>
+<body></body>
+<script type="text/javascript">
+
+
+	// Math.seedrandom('whateverstringyouwant');
+
+	/////////////////////////////////////////////////////////////////////////////
+	//////////////////// Defining important global variables ////////////////////
+	/////////////////////////////////////////////////////////////////////////////
+
+	const logicalRuleFullList = ["beide", "ten minste een", "geen", "eerste", "tweede", "verschillend"];
+	const semanticRuleFullList = ["groen", "luid", "zoet", "zacht", "geurend", "levend"];
+    const leftKey = "f";
+	const rightKey = "j";
+	var nTrialsBlock = 60;
+	
+	var allTasksVar = {
+		logical: logicalRuleFullList,
+		semantic: semanticRuleFullList
+	};
+	var allTasks = jsPsych.randomization.factorial(allTasksVar, 1);
+	
+	
+	///// defining all the stimulus pool for each semantic rule /////
+
+	const greenStimList = stimulusList.filter(function(item){
+		return item.semanticRule == "groen"
+	});
+
+	const loudStimList = stimulusList.filter(function(item){
+		return item.semanticRule == "luid"
+	});
+
+	const sweetStimList = stimulusList.filter(function(item){
+		return item.semanticRule == "zoet"
+	});
+
+	const softStimList = stimulusList.filter(function(item){
+		return item.semanticRule == "zacht"
+	});
+
+	const scentedStimList = stimulusList.filter(function(item){
+		return item.semanticRule == "geurend"
+	});
+
+	const livingStimList = stimulusList.filter(function(item){
+		return item.semanticRule == "levend"
+	});
+	// console.log(sweetStimList)
+
+
+	
+	/////  Defining the practiced and novel tasks /////
+
+	const nPracTask = 6;
+	const nNovelTask = 6**2 - nPracTask;
+
+	const pracLogicalRules = jsPsych.randomization.shuffle(logicalRuleFullList);
+	const pracSemanticRules = jsPsych.randomization.shuffle(semanticRuleFullList);
+	console.log('the logical rule practice sequence', pracLogicalRules)
+	console.log('the semantic rule practice sequence', pracSemanticRules)
+
+	const pracTasks = [];
+	for (var i=0; i<6; i++) {
+		 var ruleObject = {logical:"", semantic:""};
+		 ruleObject.logical = pracLogicalRules[i];
+		 ruleObject.semantic = pracSemanticRules[i];
+		 pracTasks.push(ruleObject);
+	}
+
+	for (var i = 0; i<pracTasks.length; i++) {
+		pracTasks[i].taskID = i+1;
+	} // assigning the taskID from 1 to 6
+	console.log("all the practiced tasks are:", pracTasks)
+
+
+	var novelTasks = allTasks.filter(comparer(pracTasks));
+	for (var i = 0; i<novelTasks.length; i++) {
+		novelTasks[i].taskID = i+7;
+	}
+	console.log("all the novel tasks are:", novelTasks)
+
+	allTasks = pracTasks.concat(novelTasks); // update the allTasks variable by copy the value instead of the reference
+	// console.log(allTasks)
+
+
+    ////////////////////////////////////////////////////////////////////
+    ////////////////////////// FUNCTIONS  //////////////////////////////
+    //////////////////////////////////////////////////////////////////// 	
+
+	function saveData(name, data){
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', 'write_data.php'); // 'write_data.php' is the path to the php file.
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify({filename: name, filedata: data}));
+    }
+
+
+	function comparer(otherArray){
+	  return function(current){
+	    return otherArray.filter(function(other){
+	      return other.logical == current.logical && other.semantic == current.semantic
+	    }).length == 0;
+	  }
+	};
+
+
+	function genRuleArray(idArray) {
+		ruleArray = [];
+		for (var i=0; i<idArray.length; i++) {
+			var rule = allTasks.find(element => element.taskID == idArray[i]);
+			ruleArray.push(rule);
+		}
+		return ruleArray // objects share the same reference of alltasks
+	}
+	// console.log(genRuleArray([2,4,8,36]))
+
+	
+	function genBalResp(){
+		// the function to generate balanced response(true/false) for a certain block(60 trials)
+		var trueList = Array(nTrialsBlock/2).fill(true);
+		var falseList = Array(nTrialsBlock/2).fill(false);
+		var fullList = trueList.concat(falseList);
+		fullList = jsPsych.randomization.shuffle(fullList);
+		return fullList	
+	}
+	// console.log(genBalResp())
+
+
+/*
+	function genStimPairArray(ruleArray) {
+
+		// the function receive the input of array of rules(logical and semantic) 
+		// return an array containing objects, each object is a stimulus of one trial
+		// response condition: 1 (Yes  No),    2 (No  Yes).
+
+		var stimArray = []; 
+		for (var i = 0; i < ruleArray.length; i++) {
+			var logicalRule = ruleArray[i].logical;
+			var semanticRule = ruleArray[i].semantic;
+
+			var trialObject = {};
+			var sample = jsPsych.randomization.sampleWithoutReplacement(subStimList(semanticRule), 2);
+			var responseCon = jsPsych.randomization.sampleWithoutReplacement([1,2],1)[0];
+
+			trialObject.logical = logicalRule;
+			trialObject.semantic = semanticRule;
+			trialObject.taskID = ruleArray[i].taskID;
+			
+			if (trialObject.taskID < 7) {
+				trialObject.prac_or_novel = "Practiced Task";
+			} else {
+				trialObject.prac_or_novel = "Novel Task";
+			};
+
+			trialObject.firstStim = sample[0].word;
+			trialObject.firstAnswer = sample[0].answer;
+			trialObject.secondStim = sample[1].word;
+			trialObject.secondAnswer = sample[1].answer;
+			trialObject.responseCon = responseCon;
+			trialObject.rightPrompt = genPrompt(responseCon).rightPrompt;
+			trialObject.leftPrompt = genPrompt(responseCon).leftPrompt;
+
+			trialObject.correctAnswer = correctJudgement(trialObject);
+			trialObject.correctKey = correctKeyPress(trialObject);
+			stimArray.push(trialObject)
+		}
+
+		return stimArray
+	}
+	// console.log(genStimPairArray(genRuleArray([2,4,8,36])))
+
+*/
+	function genStimPairArray(ruleArray, respArray) {
+
+		// the function receive the input of array of rules(logical and semantic) 
+		// return an array containing objects, each object is a stimulus of one trial
+		// response condition: 1 (Yes  No),    2 (No  Yes).
+
+		var stimArray = [];
+		var wordArray = []; 
+		
+		for (var i = 0; i < ruleArray.length; i++) {
+			var logicalRule = ruleArray[i].logical;
+			var semanticRule = ruleArray[i].semantic;
+			var response = respArray[i];
+
+			var trialObject = {};
+			// var sample = genStimPair(logicalRule, semanticRule, response);
+
+			var overlap = true;
+			while(overlap == true){
+				var sample = genStimPair(logicalRule, semanticRule, response); // return array including 2 stim objects from the JSON file
+				overlap = stimOverlap(sample, wordArray, i);
+			};
+			wordArray.push(sample[0].word);
+			wordArray.push(sample[1].word); 
+
+			var responseCon = jsPsych.randomization.sampleWithoutReplacement([1,2],1)[0];
+
+			trialObject.logical = logicalRule;
+			trialObject.semantic = semanticRule;
+			trialObject.taskID = ruleArray[i].taskID; // keep in mind that some of the tasks do not have a ID in the testing block rule array
+			
+			if (trialObject.taskID < 7) {
+				trialObject.prac_or_novel = "gekende taak"; // need change in the dutch version
+			} else {
+				trialObject.prac_or_novel = "nieuwe taak"; // need change in the dutch version
+			};
+
+			trialObject.firstStim = sample[0].word;
+			trialObject.firstAnswer = sample[0].answer;
+			trialObject.secondStim = sample[1].word;
+			trialObject.secondAnswer = sample[1].answer;
+			trialObject.responseCon = responseCon;
+			trialObject.leftPrompt = genPrompt(responseCon).leftPrompt;
+			trialObject.rightPrompt = genPrompt(responseCon).rightPrompt;
+			trialObject.correctAnswer = response;
+			trialObject.correctKey = correctKeyPress(trialObject);
+			stimArray.push(trialObject)
+		}
+
+		return stimArray
+	}
+
+	function stimOverlap(sampleArray, stimAccuArray, index){
+		// check if the stimulus pair were present during the last 5 trials
+		var sampleWordPair = [sampleArray[0].word, sampleArray[1].word];
+
+		if(index < 5) {
+			var pastWordArray = stimAccuArray; 
+		} else {
+			var pastWordArray = stimAccuArray.slice(stimAccuArray.length - 10, stimAccuArray.length);
+		}
+		return overlap = sampleWordPair.some(element => pastWordArray.includes(element)) 		
+	}
+
+
+	function genStimPair(logical, semantic, response) {
+		samplePair = [];
+		switch(logical) {
+			case "beide":
+				if (response == true) {samplePair = pickSample(1, semantic)} else {samplePair = pickSample(jsPsych.randomization.sampleWithoutReplacement([2,3,4],1)[0], semantic)};
+				break; 
+			case "ten minste een":
+				if (response == true) {samplePair = pickSample(jsPsych.randomization.sampleWithoutReplacement([1,2,3],1)[0], semantic)} else {samplePair = pickSample(4, semantic)};
+				break;
+			case "geen":
+				if (response == true) {samplePair = pickSample(4, semantic)} else {samplePair = pickSample(jsPsych.randomization.sampleWithoutReplacement([1,2,3],1)[0], semantic)};
+				break; 
+			case "eerste":
+				if (response == true) {samplePair = pickSample(jsPsych.randomization.sampleWithoutReplacement([1,2],1)[0], semantic)} else {samplePair = pickSample(jsPsych.randomization.sampleWithoutReplacement([3,4],1)[0], semantic)};
+				break; 
+			case "tweede":
+				if (response == true) {samplePair = pickSample(jsPsych.randomization.sampleWithoutReplacement([1,3],1)[0], semantic)} else {samplePair = pickSample(jsPsych.randomization.sampleWithoutReplacement([2,4],1)[0], semantic)};
+				break; 
+			case "verschillend":
+				if (response == true) {samplePair = pickSample(jsPsych.randomization.sampleWithoutReplacement([2,3],1)[0], semantic)} else {samplePair = pickSample(jsPsych.randomization.sampleWithoutReplacement([1,4],1)[0], semantic)};
+				break;
+		}
+		return samplePair
+	}
+
+	
+	function pickSample(conditionID, semantic) {
+		// pick a sample pair(array of 2 objects) based on the semantic rule and the response condition of the stim pair
+		var samplePair = [];
+		switch(conditionID) {
+			case 1: // true and true for the stim pair response
+				samplePair = jsPsych.randomization.sampleWithoutReplacement(subStimList(semantic).filter(element => element.answer == true),2);
+				break;
+			case 2: // true and false for the stim pair response
+				firstSample = jsPsych.randomization.sampleWithoutReplacement(subStimList(semantic).filter(element => element.answer == true),1)[0];
+				secondSample = jsPsych.randomization.sampleWithoutReplacement(subStimList(semantic).filter(element => element.answer == false),1)[0];
+				samplePair = [firstSample, secondSample];
+				break;
+			case 3: // false and true for the stim pair response
+				firstSample = jsPsych.randomization.sampleWithoutReplacement(subStimList(semantic).filter(element => element.answer == false),1)[0];
+				secondSample = jsPsych.randomization.sampleWithoutReplacement(subStimList(semantic).filter(element => element.answer == true),1)[0];
+				samplePair = [firstSample, secondSample];
+				break;			
+			case 4:// false and false for the stim pair response
+				samplePair = jsPsych.randomization.sampleWithoutReplacement(subStimList(semantic).filter(element => element.answer == false),2);
+				break;
+		}
+		return samplePair
+	}
+
+
+	function subStimList (semanticRule) {
+		switch(semanticRule) {
+			case "groen":
+				return greenStimList;
+				break;
+			case "luid":
+				return loudStimList;
+				break;
+			case "zoet":
+				return sweetStimList;
+				break;
+			case "zacht":
+				return softStimList;
+				break;
+			case "geurend":
+				return scentedStimList;
+				break;
+			case "levend":
+				return livingStimList;
+				break;
+		}
+	}
+	// console.log(subStimList("sweet"))
+	
+	function correctJudgement(trialObject) {
+		var correctAnswer = false; 
+		
+		switch(trialObject.logical) {
+			case "beide":
+				if (trialObject.firstAnswer && trialObject.secondAnswer) {
+					correctAnswer = true
+				};
+				break;
+			case "ten minste een":
+				if (trialObject.firstAnswer || trialObject.secondAnswer) {
+					correctAnswer = true
+				};
+				break;			
+			case "geen":
+				if (trialObject.firstAnswer == false && trialObject.secondAnswer == false) {
+					correctAnswer = true
+				};
+				break;
+			case "eerste":
+				if (trialObject.firstAnswer) {
+					correctAnswer = true
+				};
+				break;
+			case "tweede":
+				if (trialObject.secondAnswer) {
+					correctAnswer = true
+				};
+				break;
+			case "verschillend":
+				if (trialObject.firstAnswer != trialObject.secondAnswer) {
+					correctAnswer = true
+				};
+				break;
+		}
+		return correctAnswer
+	}
+	// console.log(correctJudgement({logical:"different",
+	// firstAnswer: false,
+	// firstStim: "candy",
+	// responseCon: 1,
+	// secondAnswer: true,
+	// secondStim: "lips",
+	// semantic: "soft"}))
+
+
+	function correctKeyPress(trialObject) {
+		var correctKey = "";
+		switch(trialObject.responseCon) {
+			case 1: // "Yes" on the left, "No" on the right
+				if (trialObject.correctAnswer == true) {correctKey = leftKey} else {correctKey = rightKey};
+				break;
+			case 2: // "No" on the left, "Yes" on the right
+				if (trialObject.correctAnswer == true) {correctKey = rightKey} else {correctKey = leftKey};
+				break;
+		}
+		return correctKey
+	}
+	// console.log(correctKeyPress({logical:"different",
+	// firstAnswer: false,
+	// firstStim: "candy",
+	// responseCon: 1,
+	// secondAnswer: true,
+	// secondStim: "lips",
+	// semantic: "soft",
+	// correctJudgement: true}))
+
+	function genRepArray(object, nRep) {
+		var repArray = [];
+		for (var i = 0; i < nRep; i++) {
+			repArray.push(object)
+		}
+		return repArray
+	}
+	// console.log(genRepArray({logical:"both", semantic:"soft"}, 5))
+
+
+	function genInstruction(blockInfo) {
+		var instruction = {
+			type: 'instructions',
+			pages: [
+			'<p>Tijdens het volgende blok zal je moeten oordelen of de woorden voldoen aan de volgende regels.</p>'+  // need to translate to dutch
+			'<p>' + blockInfo + '</p>' +
+			pracBlockInstruction
+			],
+			key_forward: 'spacebar',
+			post_trial_gap: 2000
+		}
+		return instruction
+	}
+
+	function genInstruction2(instructionText) {
+		var instruction = {
+			type: 'instructions',
+			pages: instructionText,
+			key_forward: 'spacebar',
+			post_trial_gap: 2000
+		}
+		return instruction		
+	}
+
+
+	function genFixation(duration){
+		var fixationObject = {
+            type: 'html-keyboard-response',
+            stimulus: '<span style="font-size:40px;">+</span>',
+            choices: jsPsych.NO_KEYS,
+            trial_duration: duration,
+            data: {
+                trial_part: 'fixation', 
+            }
+        };
+        return fixationObject
+	}
+
+
+	function genPrompt(responseCon) {
+		promptObject = {};
+		promptObject.leftPrompt = "True";    
+		promptObject.rightPrompt = "False";  
+		if(responseCon == 2) {
+			promptObject.leftPrompt = "False";  
+			promptObject.rightPrompt = "True";  
+		};
+		return promptObject
+	}
+	// console.log(genPrompt(2))
+
+	function genGraphPrompt(prompt) {
+		var graphPrompt = '<span style="color:red;">&#10006</span>';
+		if (prompt == "True") {  
+			graphPrompt = '<span style="color:green;">&#10004</span>';
+		}
+		return graphPrompt
+	}
+
+	
+	function genBlock(stimPairArray, blockType, blockID) {
+		// show instruction
+		switch (blockType) {
+			case "prac":
+				var blockInstruction = '<p>relatie:' + stimPairArray[0].logical.toUpperCase() + '</p>' +
+				                       '<p>kenmerk:' + stimPairArray[0].semantic.toUpperCase() + '</p>';
+
+				timeline.push(genInstruction(blockInstruction))
+				break;
+			case "pracMix":
+				timeline.push(genInstruction2(pracMixInstruction))
+				break;			
+			case "testCue":
+				timeline.push(genInstruction2(testCueInstruction))
+				break;
+			case "testNocue":
+				timeline.push(genInstruction2(testNoCueInstruction))
+				break;
+		}
+
+		// show fixation
+		timeline.push(genFixation(2000))
+
+		// show task cue for the prac block(6 individual task prac block)
+		switch (blockType) {
+			case "prac":
+				var task_cue = {
+					type: 'html-keyboard-response',
+					stimulus: `<div id= taskCue><p> ${stimPairArray[0].logical.toUpperCase()} </p><p> ${stimPairArray[0].semantic.toUpperCase()} </p></div>`,
+					choices: ['spacebar'],
+					data: {
+						block_type:    blockType,
+						block:         blockID,
+						prac_or_novel: stimPairArray[0].prac_or_novel,
+						logical_rule:  stimPairArray[0].logical,
+						semantic_rule: stimPairArray[0].semantic,
+						trial_part:    "taskcue",
+					}
+				}
+
+		        timeline.push(task_cue)
+			    break;
+			case "pracMix":
+				break;
+			case "testCue":
+				break;
+			case "testNocue":
+				break;
+		}
+
+		
+		// loop over each trial of the block
+		for (var i = 0; i < stimPairArray.length; i++) {
+
+			// show task type cue for testCue and testNocue blocks
+			switch (blockType) {
+				case "prac":
+					break;
+				case "pracMix":
+					break;
+				case "testCue":
+					var tasktype_cue = {
+						type: 'html-keyboard-response',
+						stimulus: '<p><span style = "font-size:20px;">' + '* ' + stimPairArray[i].prac_or_novel + ' *' + '</span></p>',
+						choices: jsPsych.NO_KEYS,
+						stimulus_duration: 1000,
+						trial_duration: 1000,
+						data: {
+							block_type:blockType,
+							block: blockID,
+							prac_or_novel: stimPairArray[i].prac_or_novel,
+							trial_part: "tasktype_cue",
+						}
+					}
+
+					timeline.push(tasktype_cue)
+					timeline.push(genFixation(jitter[i]))
+					break;
+				case "testNocue":
+					var tasktype_cue = {
+						type: 'html-keyboard-response',
+						stimulus: '<p><span style = "font-size:20px;">* xxxxxx xxxx *</span></p>',					              
+						choices: jsPsych.NO_KEYS,
+						stimulus_duration: 1000,
+						trial_duration: 1000,
+						data: {
+							block_type:blockType,
+							block: blockID,
+							prac_or_novel: stimPairArray[i].prac_or_novel,
+							trial_part: "tasktype_nocue",
+						}
+					}
+
+					timeline.push(tasktype_cue)
+					timeline.push(genFixation(jitter[i]))
+					break;			
+			}
+
+			
+
+			// show task cue for pracMix, testCue and testNocue blocks
+			if (blockType != "prac") {
+				var task_cue = {
+					type: 'html-keyboard-response',
+					stimulus: `<div id= taskCue><p> ${stimPairArray[i].logical.toUpperCase()} </p><p> ${stimPairArray[i].semantic.toUpperCase()} </p></div>`,
+					choices: ['spacebar'],
+					data: {
+						block_type:    blockType,
+						block:         blockID,
+						prac_or_novel: stimPairArray[i].prac_or_novel,
+						logical_rule:  stimPairArray[i].logical,
+						semantic_rule: stimPairArray[i].semantic,
+						trial_part:    "taskcue",
+					}
+				}
+				timeline.push(task_cue)
+			} else {};
+
+
+			// show fixation
+			// timeline.push(genFixation(1000))
+
+			// show stimuli
+			var stimulus = {
+				type : 'html-keyboard-response',
+				stimulus: '<p><span style = "font-size:20px;">' + stimPairArray[i].firstStim + '</span></p>' +
+				          '<p><span style = "font-size:20px;">' + stimPairArray[i].secondStim + '</span></p>',
+				choices: [leftKey, rightKey],
+				prompt: '<div id = "leftPrompt">' + genGraphPrompt(stimPairArray[i].leftPrompt) + '</div>' + 
+				        '<div id = "rightPrompt">' + genGraphPrompt(stimPairArray[i].rightPrompt) + '</div>',
+				stimulus_duration: 5000,
+				trial_duration:5000,
+				post_trial_gap: function() {
+					ITI = 1000;
+					if (blockType == "testCue" || blockType == "testNocue") {
+						ITI = 2000;
+					}
+					return ITI
+				},
+				data: {
+					block_type:       blockType,
+					block:            task_cue.data.block,
+					prac_or_novel:    task_cue.data.prac_or_novel,
+					trial_num:        i+1,
+					logical_rule:     task_cue.data.logical_rule,
+					semantic_rule:    task_cue.data.semantic_rule,
+					trial_part:       "target",
+					first_stimuli:    stimPairArray[i].firstStim,
+					second_stimuli:   stimPairArray[i].secondStim,
+					first_answer:     stimPairArray[i].firstAnswer,
+					second_answer:    stimPairArray[i].secondAnswer,
+					correct_answer:   stimPairArray[i].correctAnswer,
+					response_condition:stimPairArray[i].responseCon,
+					correct_key:      stimPairArray[i].correctKey,
+				},
+		        
+		        on_finish: function(data) {
+		            var acc = false;
+		            if (data.correct_key == jsPsych.pluginAPI.convertKeyCodeToKeyCharacter(data.key_press)) {
+		                acc = true;
+		            }
+		            data.accuracy = acc;
+		        }		
+			}
+
+			timeline.push(stimulus);
+
+		    // show feedback after each trial only during the prac and pracMix Block
+		    switch (blockType) {
+				case "prac":
+				case "pracMix":
+					var feedback = {
+			        type: 'html-keyboard-response',
+			        stimulus: function() {
+			            var feedback_text = '<span style="font-size:20px;">fout!</span>'; 
+			            var last_resp_acc = jsPsych.data.getLastTrialData().values()[0].accuracy;
+			            if (last_resp_acc == true) {
+			                feedback_text = '<span style="font-size:20px;">goed zo!</span>'
+			            }
+			            return feedback_text;
+			            },
+			        choices: jsPsych.NO_KEYS,
+			        trial_duration: 1000
+			        }
+
+			        timeline.push(feedback)
+					break;
+				case "testCue":
+					break;
+				case "testNocue":
+					break;
+			}
+		}
+	}
+
+
+	/////////////////////////////////////////////////////////////////////////////////
+	//////////////////////////////// EXPERIMENT START ///////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////
+	var timeline = [];
+
+	///// consent /////
+
+	var consent = {
+		type: 'instructions',
+		pages: consentText,
+		show_clickable_nav: true,
+		button_label_next: "Akkoord", // need to translate to dutch
+		allow_backward: false
+	};
+	timeline.push(consent)
+
+
+	///// collect demographic information /////
+
+	var subjectID = jsPsych.randomization.randomID(8);
+	var sonaID = jsPsych.data.getURLVariable('sonaID');
+
+	var gender_options = ["man", "vrouw", "anders", "duid ik liever niet aan"];
+	
+	var demInfo_1 = {
+	  type: 'survey-multi-choice',
+	  questions: [
+	    {prompt: "Wat is uw geslacht?", name: 'gender', options: ["man", "vrouw", "anders", "duid ik liever niet aan"], required:true},
+	    {prompt: "Bent u links- of rechtshandig?", name: 'handedness', options: ['linkshandig', 'rechtshandig'], required:true},
+	    {prompt: "Hoe goed is je kennis van het Nederlands?", name: 'dutchlevel', options: ['moedertaal', 'vlot', 'basis'], required:true}
+	    ]
+	};
+	timeline.push(demInfo_1)
+
+	var age_trial = {
+	  type: 'survey-text',
+	  questions: [
+	    {prompt: "Hoe oud bent u?", name:'age'},
+	  ],
+	};
+	timeline.push(age_trial)
+
+
+	var add_dem_info = {
+		type: 'call-function',
+		func: function(){
+			jsPsych.data.addProperties({
+				subject: subjectID,
+				sona:sonaID,
+				gender: JSON.parse(jsPsych.data.get().last(2).values()[0].responses)["gender"],
+				handedness: JSON.parse(jsPsych.data.get().last(2).values()[0].responses)["handedness"],
+				dutchlevel: JSON.parse(jsPsych.data.get().last(2).values()[0].responses)["dutchlevel"],
+				age:JSON.parse(jsPsych.data.get().last(1).values()[0].responses)["age"]
+			});
+		}
+	};
+	timeline.push(add_dem_info)
+
+
+	/////  Overall instruction /////
+    var overallInstructions = {
+        type: 'instructions',
+        pages: mainInstruction,
+        show_clickable_nav: true,
+        post_trial_gap: 1000
+    };
+    timeline.push(overallInstructions)
+
+
+   // detect visitor variables with the bowser js library (/js/bowser.js)
+	jsPsych.data.addProperties({ // add these variables to all rows of the datafile
+		browser_name: bowser.name, browser_version: bowser.version,
+		os_name: bowser.osname, os_version: bowser.osversion,
+		screen_resolution: screen.width + ' x ' + screen.height,
+		window_resolution: window.innerWidth + ' x ' + window.innerHeight, // this will be updated throughout the experiment
+	});
+
+	///////////////////////////////////////////////////////////////////////////////////
+	//////////////////////////////// Practice Blocks //////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////////
+
+
+	var blockLabels = ['prac_1', 'prac_2', 'prac_3', 'prac_4', 'prac_5', 'prac_6', 'pracMix_1', 'test_1', 'test_2', 'test_3', 'test_4'];
+	var blockNum = ['first','second','third','fourth','fifth','sixth'];
+	const pracTaskId = [1,2,3,4,5,6];
+	// console.log(respList)
+
+
+
+	///// the first six blocks /////
+
+	for(var i = 0; i < pracTasks.length; i++) {
+		var pracRuleArray = genRepArray(pracTasks[i], nTrialsBlock);
+
+		var respList = genBalResp();
+		var pracBlock = genStimPairArray(pracRuleArray, respList);
+		console.log("the " + blockNum[i] + " practice block consist of the following trials:", pracBlock)
+
+		var blockLabel = blockLabels[i];
+		genBlock(pracBlock,'prac', blockLabel)
+
+		// var storeData = {
+	 //        type: "call-function", 
+	 //        func: function() {    
+	 //            saveData(subjectID + "_" + blockLabel, jsPsych.data.get().filter({block: blockLabel}).csv());
+	 //        }}
+		// timeline.push(storeData)
+	}
+
+
+/*   
+    ////////////////// Practice Block No.1 ///////////////////////
+    var firstPracRuleArray = genRepArray(pracTasks[0], nTrialsBlock);
+    var firstPracBlock = genStimPairArray(firstPracRuleArray, genBalResp());
+    console.log("the first practice block consist of the following trials:", firstPracBlock)
+    
+    genBlock(firstPracBlock, 'prac', 'prac_1')
+
+	var storeData = {
+        type: "call-function", 
+        func: function() {    
+            saveData(subjectID + "_" + 'prac_1', jsPsych.data.get().filter({block: 'prac_1'}).csv());
+        }}
+	timeline.push(storeData)
+
+
+    ////////////////// Practice Block No.2 ///////////////////////
+    var secondPracRuleArray = genRepArray(pracTasks[1], nTrialsBlock);
+    var secondPracBlock = genStimPairArray(secondPracRuleArray, genBalResp());
+    console.log("the second practice block consist of the following trials:", secondPracBlock)
+    
+    genBlock(secondPracBlock, 'prac', 'prac_2')
+
+	var storeData = {
+        type: "call-function", 
+        func: function() {    
+            saveData(subjectID + "_" + 'prac_2', jsPsych.data.get().filter({block: 'prac_2'}).csv());
+        }}
+	timeline.push(storeData)
+
+    ////////////////// Practice Block No.3 ///////////////////////
+    var thirdPracRuleArray = genRepArray(pracTasks[2], nTrialsBlock);
+    var thirdPracBlock = genStimPairArray(thirdPracRuleArray, genBalResp());
+    console.log("the third practice block consist of the following trials:", thirdPracBlock)
+    
+    genBlock(thirdPracBlock, 'prac', 'prac_3')
+
+	var storeData = {
+        type: "call-function", 
+        func: function() {    
+            saveData(subjectID + "_" + 'prac_3', jsPsych.data.get().filter({block: 'prac_3'}).csv());
+        }}
+	timeline.push(storeData)
+
+    ////////////////// Practice Block No.4 ///////////////////////
+    var fourthPracRuleArray = genRepArray(pracTasks[3], nTrialsBlock);
+    var fourthPracBlock = genStimPairArray(fourthPracRuleArray, genBalResp());
+    console.log("the fourth practice block consist of the following trials:", fourthPracBlock)
+    
+    genBlock(fourthPracBlock, 'prac', 'prac_4')
+
+
+    ////////////////// Practice Block No.5 ///////////////////////
+    var fifthPracRuleArray = genRepArray(pracTasks[4], nTrialsBlock);
+    var fifthPracBlock = genStimPairArray(fifthPracRuleArray, genBalResp());
+    console.log("the fifth practice block consist of the following trials:", fifthPracBlock)
+    
+    genBlock(fifthPracBlock, 'prac', 'prac_5')
+
+
+    ////////////////// Practice Block No.6 ///////////////////////
+    var sixthPracRuleArray = genRepArray(pracTasks[5], nTrialsBlock);
+    var sixthPracBlock = genStimPairArray(sixthPracRuleArray, genBalResp());
+    console.log("the sixth practice block consist of the following trials:", sixthPracBlock)
+    
+    genBlock(sixthPracBlock, 'prac', 'prac_6')
+ 
+ */   
+
+    ///// Practice Block No.7 /////
+    var firstMixPracId = jsPsych.randomization.shuffleNoRepeats(jsPsych.randomization.repeat(pracTaskId, 10));
+    // console.log(firstMixPracId)
+
+    var firstMixPracRuleArray = genRuleArray(firstMixPracId);
+    // console.log(neighborRuleOverlap(firstMixPracRuleArray))
+
+    var firstMixPracBlock = genStimPairArray(firstMixPracRuleArray, genBalResp());
+    console.log("the first mixed practice block consist of the following trials:", firstMixPracBlock);
+    
+    genBlock(firstMixPracBlock, 'pracMix', 'pracMix_1')
+ 	
+	////////////// save data for all the practice blocks //////////
+	var storeDataPrac = {
+        type: "call-function", 
+        func: function() {    
+            saveData(subjectID + "_" + 'prac', jsPsych.data.get().filterCustom(function(element){return element.block_type == 'prac' || element.block_type == 'pracMix'}).csv());
+        }}
+	timeline.push(storeDataPrac)
+
+
+    ///////////////////////////////////////////////////////////////
+    ////////////////////// Testing Section ////////////////////////
+    ///////////////////////////////////////////////////////////////
+	
+	////// defining the testing block structure /////
+	
+	const testSeq = jsPsych.randomization.sampleWithoutReplacement([["testCue", "testNocue", "testCue", 'testNocue'],["testNocue", "testCue", 'testNocue',"testCue"]],1)[0];
+	var testPracId = jsPsych.randomization.repeat(pracTaskId, 5);
+	
+	var novelTaskId = [];
+	for (i=0; i<novelTasks.length; i++) {
+		novelTaskId.push(i+7) 
+	}	
+	
+	var testFullId = testPracId.concat(novelTaskId);
+
+	var miniblocks = [[], [], [], [], []];
+	miniblocks = miniblocks.map(element => element.concat(pracTasks.slice()));   // include the practiced tasks in each of the mini block
+	miniblocks = miniblocks.map(element => element.concat([{},{},{},{},{},{}])); // include the novel tasks
+
+	for (i=0; i<miniblocks.length; i++){
+
+		miniblocks[i][6].logical = miniblocks[i][0].logical;
+		miniblocks[i][6].semantic = pracTasks[(6-6+1+i) % 6].semantic;
+
+		miniblocks[i][7].logical = miniblocks[i][1].logical;		
+		miniblocks[i][7].semantic = pracTasks[(7-6+1+i) % 6].semantic;
+
+	    miniblocks[i][8].logical = miniblocks[i][2].logical;
+		miniblocks[i][8].semantic = pracTasks[(8-6+1+i) % 6].semantic;
+
+		miniblocks[i][9].logical = miniblocks[i][3].logical;		
+		miniblocks[i][9].semantic = pracTasks[(9-6+1+i) % 6].semantic;
+
+		miniblocks[i][10].logical = miniblocks[i][4].logical;		
+		miniblocks[i][10].semantic = pracTasks[(10-6+1+i) % 6].semantic;
+
+		miniblocks[i][11].logical = miniblocks[i][5].logical;
+		miniblocks[i][11].semantic = pracTasks[(11-6+1+i) % 6].semantic;
+	}
+
+	for (i = 0; i<miniblocks.length; i++) {
+		miniblocks[i] = jsPsych.randomization.shuffleNoRepeats(miniblocks[i]); // shuffle within each miniblock
+	}
+
+	// console.log(miniblocks)
+
+	function genDisTestBlock(shuffledMiniBlocks) {
+		var disMiniBlocks_aux = [[], [], [], [], []];
+		for (i=0; i < disMiniBlocks_aux.length; i++) {
+			disMiniBlocks_aux[i] = genDisRuleArray(shuffledMiniBlocks[i]);
+		};
+		var disTestBlock_aux = [].concat.apply([], disMiniBlocks_aux); // concatenate the whole test block
+
+        // to avoid the rule overlapping between the last rule of the previous mini block and the first rule of the next mini block
+		var nshuffle = 0;
+		while (neighborRuleOverlap(disTestBlock_aux) == true && nshuffle < 120) {
+			disMiniBlocks_aux = jsPsych.randomization.shuffleNoRepeats(disMiniBlocks_aux);
+			disTestBlock_aux = [].concat.apply([], disMiniBlocks_aux);
+			nshuffle += 1;
+		}
+		return disTestBlock_aux
+	}
+
+
+	function genDisRuleArray(ruleArray) {
+		//  function of generating rule array without any overlapping of each rule dimensions
+		var overlap = neighborRuleOverlap(ruleArray);
+		var ruleArray_aux = [...ruleArray];
+
+		while (overlap == true) {
+			var ruleArray_aux = jsPsych.randomization.shuffleNoRepeats(ruleArray_aux);	
+			overlap = neighborRuleOverlap(ruleArray_aux);
+		};
+
+		return ruleArray_aux;
+	}
+
+
+	function neighborRuleOverlap(ruleArray) {
+		var logicalOverlapArray = [];
+		var semanticOverlapArray = [];
+		for (var i = 0; i < ruleArray.length - 1; i++) {
+			// first evaluate if the logical rule of neighboring objects are the same
+			if (ruleArray[i].logical == ruleArray[i+1].logical) {
+				var logicalOverlap = true;
+			} else {
+				var logicalOverlap = false;				
+			};
+
+			// then evaluate if the semantic rule of neighboring objects are the same
+			if (ruleArray[i].semantic == ruleArray[i+1].semantic) {
+				var semanticOverlap = true;
+			} else {
+				var semanticOverlap = false;
+			};
+
+			logicalOverlapArray.push(logicalOverlap);
+			semanticOverlapArray.push(semanticOverlap);
+		}
+
+		var bothRuleArray = logicalOverlapArray.concat(semanticOverlapArray);
+		var overlap = bothRuleArray.includes(true);
+		return overlap
+	}
+
+	// var testOverlapArray1 = [{logical: "either", semantic:"green"},
+	//                          {logical: "either", semantic:"soft"}, 
+	//                          {logical: "first", semantic:"loud"}, 
+	//                          {logical: "either", semantic:"sweet"}, 
+	//                          {logical: "neither", semantic:"soft"}];
+	// console.log(neighborRuleOverlap(testOverlapArray1))		
+
+
+
+    
+    jitter = [1000,1000,1000,1000,1000,1000,1000,
+                             1000,1000,1000,1000,1000,
+                             1400,1400,1400,1400,
+                             1400,1400,1400,1400,1400,1400,1400,
+                             1800,1800,1800,1800,1800,1800,1800,
+                             2200,2200,2200,2200,2200,2200,
+                             2600,2600,2600,2600,2600,2600,
+                             3000,3000,3000,3000,3000,3000,
+                             3400,3400,3400,3400,
+                             3800,3800,
+                             4200,4200,
+                             4600,4600,
+                             5000,5000];
+
+
+    //////////// Testing starts ///////////////
+
+	var overallTestInstruction = {
+        type: 'instructions',
+        pages: testMainInstruction,
+        show_clickable_nav: true,
+        post_trial_gap: 1000
+    };
+    timeline.push(overallTestInstruction)	
+
+
+	//////////// initiate all the testing blocks ///////////////
+
+
+	for(var ii=0; ii<4; ii++) {
+		
+		var testRuleArray = genDisTestBlock(jsPsych.randomization.shuffleNoRepeats(miniblocks));
+		// console.log(testRuleArray)
+		// console.log(ii)
+		var testBlock = genStimPairArray(testRuleArray, genBalResp());
+		console.log("the " + blockNum[ii] + " test block consist of the following trials", testBlock)
+
+		jitter = jsPsych.randomization.shuffle(jitter);
+		genBlock(testBlock, testSeq[ii], blockLabels[ii+7]);
+
+		// var storePrData = {
+	 //        type: "call-function", 
+	 //        func: function() {    
+	 //            saveData(subjectID + blockLabel[i+7], jsPsych.data.get().filter({block: blockLabel[i+7]}).csv());
+	 //        }}
+		// timeline.push(storePrData)
+	}
+
+	//////////// save data for all the testing block /////////////////
+	var storeDataTest = {
+        type: "call-function", 
+        func: function() {    
+            saveData(subjectID + "_" + 'test', jsPsych.data.get().filterCustom(function(element) {return element.block_type == 'testCue' || element.block_type == 'testNocue'}).csv());
+        }}
+	timeline.push(storeDataTest)
+
+
+/*
+	////////////////// Test Block No.1 ////////////////////////////
+
+	var firstTestRuleArray = genDisTestBlock(jsPsych.randomization.shuffleNoRepeats(miniblocks));
+	var firstTestBlock = genStimPairArray(firstTestRuleArray, genBalResp());
+	console.log("the first test block consist of the following trials", firstTestBlock)
+	genBlock(firstTestBlock, testSeq[0], 'test_1');
+
+	var storeData = {
+        type: "call-function", 
+        func: function() {    
+            saveData(subjectID + "_" + 'test_1', jsPsych.data.get().filter({block: 'test_1'}).csv());
+        }}
+	timeline.push(storeData)
+
+	////////////////// Test Block No.2 ////////////////////////////
+
+	var secondTestRuleArray = genDisTestBlock(jsPsych.randomization.shuffleNoRepeats(miniblocks));
+	var secondTestBlock = genStimPairArray(secondTestRuleArray, genBalResp());
+	console.log("the second test block consist of the following trials", secondTestBlock)
+	genBlock(secondTestBlock, testSeq[1], 'test_2');
+
+	var storeData = {
+        type: "call-function", 
+        func: function() {    
+            saveData(subjectID + "_" + 'test_2', jsPsych.data.get().filter({block: 'test_2'}).csv());
+        }}
+	timeline.push(storeData)
+
+	////////////////// Test Block No.3 ////////////////////////////
+
+	var thirdTestRuleArray = genDisTestBlock(jsPsych.randomization.shuffleNoRepeats(miniblocks));
+	var thirdTestBlock = genStimPairArray(thirdTestRuleArray, genBalResp());
+	console.log("the third test block consist of the following trials", thirdTestBlock)
+	genBlock(thirdTestBlock, testSeq[2], 'test_3');
+
+	var storeData = {
+        type: "call-function", 
+        func: function() {    
+            saveData(subjectID + "_" + 'test_3', jsPsych.data.get().filter({block: 'test_3'}).csv());
+        }}
+	timeline.push(storeData)
+
+
+	///////////////////// Test Block No.4 ///////////////////////////
+
+	var fourthTestRuleArray = genDisTestBlock(jsPsych.randomization.shuffleNoRepeats(miniblocks));
+	var fourthTestBlock = genStimPairArray(fourthTestRuleArray, genBalResp());
+	console.log("the fourth test block consist of the following trials", fourthTestBlock)
+	genBlock(fourthTestBlock, testSeq[3], 'test_4');
+
+	var storeData = {
+        type: "call-function", 
+        func: function() {    
+            saveData(subjectID + "_" + 'test_4', jsPsych.data.get().filter({block: 'test_4'}).csv());
+        }}
+	timeline.push(storeData)
+
+*/
+
+    ////////////////// the ending survey ////////////////////////////
+
+	var scale_validity = ["zeker niet", "eerder niet", "moeilijk te zeggen", "eerder wel", "zeker wel"];
+    var scale_familiarity = ["veel moeilijker", "iets moeilijker", "even moeilijk/makkelijk", "iets makkelijker", "veel makkelijker"];
+
+    var likert_validity = {
+	  type: 'survey-likert',
+	  questions: [
+	    {prompt: "Hoeveel heeft de cue geholpen die aankondigde dat er een nieuwe versus gekende taak zou verschijnen?", labels: scale_validity}
+	  ],
+	  data:{
+	  	trial_part: "survey_validity"
+	  },
+	  on_finish: function(data){
+	  	data.reponse = parseInt(data.responses.split('\":')[1].substring(0,1)) + 1;
+	  },
+	};
+	timeline.push(likert_validity)
+
+    var likert_familiarity = {
+	  type: 'survey-likert',
+	  questions: [
+	    {prompt: "In vergelijking met de nieuwe taken, denk je dat de gekende taken _____ waren.", labels: scale_familiarity}
+	  ],
+	  data:{
+	  	trial_part: "survey_familiarity"
+	  },
+	  on_finish: function(data){
+	  	data.reponse = parseInt(data.responses.split('\":')[1].substring(0,1)) + 1;
+	  },
+	};
+	timeline.push(likert_familiarity)
+
+	//////////// save data for all the survey questions /////////////
+	var storeDataSurvey = {
+        type: "call-function", 
+        func: function() {    
+            saveData(subjectID + "_" + 'survey', jsPsych.data.get().last(2).csv());
+        }}
+	timeline.push(storeDataSurvey)
+
+	////////////////// The End of the experiment ////////////////////
+    var endMessage = {
+        type: 'instructions',
+        pages: endMessage,
+        show_clickable_nav: true,
+        post_trial_gap: 1000
+    };
+    timeline.push(endMessage)
+
+	jsPsych.init({
+		timeline: timeline,
+		on_finish: function() {
+			jsPsych.data.displayData();
+		}
+	})
+
+</script>

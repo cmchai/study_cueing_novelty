@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title> PRO version 3 with task type cue English version -- 3rd experiment</title>
+	<script src="jspsych/jspsych.js"></script>
+	<script src="jspsych/plugins/jspsych-html-keyboard-response.js"></script>
+	<script src="jspsych/plugins/jspsych-survey-text.js"></script>
+	<script src="jspsych/plugins/jspsych-survey-multi-choice.js"></script>		
+	<script src="jspsych/plugins/jspsych-image-button-response.js"></script>
+	<script src="jspsych/plugins/jspsych-instructions.js"></script>
+    <script src="jspsych/plugins/jspsych-call-function.js"></script>
+    <script src="jspsych/plugins/jspsych-survey-likert.js"></script>
+
+	<script src="stimuliList_PRO_3_EN.js"></script>
+	<script src="instructions_EN_v3.js"></script>
+
+	<script src="bowser.js"></script>
+	<link href="jspsych/css/jspsych.css" rel="stylesheet">
+	<style>
+		.InstrBx {max-width: 70vw; max-height: 100%;}
+		#leftPrompt{position:absolute; bottom:18vw; left:42vw; font-size: 30px;}
+		#rightPrompt{position:absolute; bottom:18vw; right:42vw; font-size: 30px;}
+		#taskCue{height:160px; width:150px; border: 3px solid #000000;}
+		#instructionFrame{width:800px; text-align: left; line-break: normal;}
+		ul.a {
+		  list-style-type: disc;
+		}		
+	</style>
+</head>
+<body></body>
+<script type="text/javascript">
+
+
+	// Math.seedrandom('whateverstringyouwant');
+
+	/////////////////////////////////////////////////////////////////////////////
+	//////////////////// Defining important global variables ////////////////////
+	/////////////////////////////////////////////////////////////////////////////
+
+	var justtest = true; // change it to false!!!! once starting collecting real data
+	
+	const logicalRuleFullList = ["both", "at least one", "first", "second"];
+	const semanticRuleFullList = ["green", "loud", "sweet", "soft"];
+	const motorRuleFullList = ["left middle", "left index", "right index", "right middle"]; 
+
+    const leftMid = "d";
+    const leftIdx = "f";
+	const rightIdx = "j";
+	const rightMid = "k";
+	var nTrialsBlock = 60;
+
+	var allTasksVar = {
+		logical: logicalRuleFullList,
+		semantic: semanticRuleFullList,
+		motor:motorRuleFullList
+	};
+	var allTasks = jsPsych.randomization.factorial(allTasksVar, 1);
+	
+	
+	///// defining all the stimulus pool for each semantic rule /////
+
+	const greenStimList = stimulusList.filter(function(item){
+		return item.semanticRule == "green"
+	});
+
+	const loudStimList = stimulusList.filter(function(item){
+		return item.semanticRule == "loud"
+	});
+
+	const sweetStimList = stimulusList.filter(function(item){
+		return item.semanticRule == "sweet"
+	});
+
+	const softStimList = stimulusList.filter(function(item){
+		return item.semanticRule == "soft"
+	});
+	// console.log(sweetStimList)
+
+
+	
+	/////  Defining the practiced and novel tasks /////
+
+	const nPracTask = 4;
+	const nNovelTask = 4**3 - nPracTask; // 60 novel tasks
+
+	const pracLogicalRules = jsPsych.randomization.shuffle(logicalRuleFullList);
+	const pracSemanticRules = jsPsych.randomization.shuffle(semanticRuleFullList);
+	const pracMotorRules = jsPsych.randomization.shuffle(motorRuleFullList);
+	
+	console.log('the logical rule practice sequence', pracLogicalRules)
+	console.log('the semantic rule practice sequence', pracSemanticRules)
+	console.log('the motor rule practice sequence', pracMotorRules)
+
+	const pracTasks = [];
+	for (var i=0; i<nPracTask; i++) {
+		 var ruleObject = {logical:"", semantic:"", motor:"", taskID:""};
+		 ruleObject.logical = pracLogicalRules[i];
+		 ruleObject.semantic = pracSemanticRules[i];
+		 ruleObject.motor = pracMotorRules[i];
+		 ruleObject.taskID = i+1; // from No.1 to No.4
+		 pracTasks.push(ruleObject);
+	}
+	console.log("all the practiced tasks are:", pracTasks)
+
+
+	var novelTasks = allTasks.filter(comparer(pracTasks));
+	for (var i = 0; i<nNovelTask; i++) {
+		novelTasks[i].taskID = i+1+nPracTask; // novel task ID from 5 to 64
+	}
+	console.log("all the novel tasks are:", novelTasks)
+
+	allTasks = pracTasks.concat(novelTasks); // update the allTasks variable by copy the value instead of the reference
+	console.log("all the tasks are:", allTasks)
+
+
+    ////////////////////////////////////////////////////////////////////
+    ////////////////////////// FUNCTIONS  //////////////////////////////
+    //////////////////////////////////////////////////////////////////// 	
+
+/*
+	function saveData(name, data){
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', 'write_data.php'); // 'write_data.php' is the path to the php file.
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify({filename: name, filedata: data}));
+    }
+*/
+
+	function comparer(otherArray){
+	  return function(current){
+	    return otherArray.filter(function(other){
+	      return other.logical == current.logical && other.semantic == current.semantic && other.motor == current.motor
+	    }).length == 0;
+	  }
+	};
+
+
+	function genRuleArray(idArray) {
+		ruleArray = [];
+		for (var i=0; i<idArray.length; i++) {
+			var rule = allTasks.find(element => element.taskID == idArray[i]);
+			ruleArray.push(rule);
+		}
+		return ruleArray // objects share the same reference of alltasks
+	}
+	// console.log(genRuleArray([2,4,8,36]))
+
+	
+	function genBalResp(nTrials){
+		// the function to generate balanced response(true/false) for a certain amount of trials
+		var falseList = Array(nTrials/2).fill(false);
+		var trueList = Array(nTrials/2).fill(true);
+		var fullList = trueList.concat(falseList);
+		fullList = jsPsych.randomization.shuffle(fullList);
+		return fullList
+	}
+	// console.log(genBalResp())
+
+	function genStimPairArray(ruleArray, respArray) {
+
+		// the function receive the input of array of rules(logical, semantic, and motor)
+		// also receive the response(either true or false)
+		// return an array containing objects, each object is a stimulus of one trial
+
+		var stimArray = [];
+		var wordArray = [];
+		
+		for (var i = 0; i < ruleArray.length; i++) {
+			var logicalRule = ruleArray[i].logical;
+			var semanticRule = ruleArray[i].semantic;
+			var motorRule = ruleArray[i].motor;
+			var response = respArray[i];
+
+			var trialObject = {};
+			// var sample = genStimPair(logicalRule, semanticRule, response);
+
+			var overlap = true;
+			while(overlap == true){
+				var sample = genStimPair(logicalRule, semanticRule, response); // return array including 2 stim objects from the JSON file
+				overlap = stimOverlap(sample, wordArray, i);
+			};
+			wordArray.push(sample[0].word);
+			wordArray.push(sample[1].word); 
+
+			trialObject.logical = logicalRule;
+			trialObject.semantic = semanticRule;
+			trialObject.motor = motorRule;
+			trialObject.taskID = ruleArray[i].taskID; // keep in mind that some of the tasks do not have a ID in the testing block rule array
+			
+			if (trialObject.taskID < nPracTask + 1) {
+				trialObject.prac_or_novel = "prac task"; // need change in the dutch version
+			} else {
+				trialObject.prac_or_novel = "novel task"; // need change in the dutch version
+			};
+
+			trialObject.firstStim = sample[0].word;
+			trialObject.firstAnswer = sample[0].answer;
+			trialObject.secondStim = sample[1].word;
+			trialObject.secondAnswer = sample[1].answer;
+			trialObject.correctAnswer = response;
+			trialObject.correctKey = correctKeyPress(trialObject);
+			stimArray.push(trialObject)
+		}
+
+		return stimArray
+	}
+
+	function stimOverlap(sampleArray, stimAccuArray, index){
+		// to see if the stimlus pair has overlapping words in the past 5 trials		
+		var sampleWordPair = [sampleArray[0].word, sampleArray[1].word];
+
+		if(index < 5) {
+			var pastWordArray = stimAccuArray; 
+		} else {
+			var pastWordArray = stimAccuArray.slice(stimAccuArray.length - 10, stimAccuArray.length);
+		}
+		return overlap = sampleWordPair.some(element => pastWordArray.includes(element))		
+	}
+
+
+	function genStimPair(logical, semantic, response) {
+		samplePair = [];
+		switch(logical) {
+			case "both":
+				if (response == true) {samplePair = pickSample(1, semantic)} else {samplePair = pickSample(jsPsych.randomization.sampleWithoutReplacement([2,3,4],1)[0], semantic)};
+				break; 
+			case "at least one":
+				if (response == true) {samplePair = pickSample(jsPsych.randomization.sampleWithoutReplacement([1,2,3],1)[0], semantic)} else {samplePair = pickSample(4, semantic)};
+				break;
+			case "first":
+				if (response == true) {samplePair = pickSample(jsPsych.randomization.sampleWithoutReplacement([1,2],1)[0], semantic)} else {samplePair = pickSample(jsPsych.randomization.sampleWithoutReplacement([3,4],1)[0], semantic)};
+				break; 
+			case "second":
+				if (response == true) {samplePair = pickSample(jsPsych.randomization.sampleWithoutReplacement([1,3],1)[0], semantic)} else {samplePair = pickSample(jsPsych.randomization.sampleWithoutReplacement([2,4],1)[0], semantic)};
+				break;
+		}
+		return samplePair
+	}
+
+	
+	function pickSample(conditionID, semantic) {
+		// pick a sample pair(array of 2 objects) based on the semantic rule and the response condition of the stim pair
+		var samplePair = [];
+		switch(conditionID) {
+			case 1: // true and true for the stim pair response
+				samplePair = jsPsych.randomization.sampleWithoutReplacement(subStimList(semantic).filter(element => element.answer == true),2);
+				break;
+			case 2: // true and false for the stim pair response
+				firstSample = jsPsych.randomization.sampleWithoutReplacement(subStimList(semantic).filter(element => element.answer == true),1)[0];
+				secondSample = jsPsych.randomization.sampleWithoutReplacement(subStimList(semantic).filter(element => element.answer == false),1)[0];
+				samplePair = [firstSample, secondSample];
+				break;
+			case 3: // false and true for the stim pair response
+				firstSample = jsPsych.randomization.sampleWithoutReplacement(subStimList(semantic).filter(element => element.answer == false),1)[0];
+				secondSample = jsPsych.randomization.sampleWithoutReplacement(subStimList(semantic).filter(element => element.answer == true),1)[0];
+				samplePair = [firstSample, secondSample];
+				break;			
+			case 4:// false and false for the stim pair response
+				samplePair = jsPsych.randomization.sampleWithoutReplacement(subStimList(semantic).filter(element => element.answer == false),2);
+				break;
+		}
+		return samplePair
+	}
+
+
+	function subStimList (semanticRule) {
+		switch(semanticRule) {
+			case "green":
+				return greenStimList;
+				break;
+			case "loud":
+				return loudStimList;
+				break;
+			case "sweet":
+				return sweetStimList;
+				break;
+			case "soft":
+				return softStimList;
+				break;
+		}
+	}
+	// console.log(subStimList("sweet"))
+	
+	function correctJudgement(trialObject) {
+		var correctAnswer = false; 
+		
+		switch(trialObject.logical) {
+			case "both":
+				if (trialObject.firstAnswer && trialObject.secondAnswer) {
+					correctAnswer = true
+				};
+				break;
+			case "at least one":
+				if (trialObject.firstAnswer || trialObject.secondAnswer) {
+					correctAnswer = true
+				};
+				break;
+			case "first":
+				if (trialObject.firstAnswer) {
+					correctAnswer = true
+				};
+				break;
+			case "second":
+				if (trialObject.secondAnswer) {
+					correctAnswer = true
+				};
+				break;
+		}
+		return correctAnswer
+	}
+	// console.log(correctJudgement({logical:"different",
+	// firstAnswer: false,
+	// firstStim: "candy",
+	// responseCon: 1,
+	// secondAnswer: true,
+	// secondStim: "lips",
+	// semantic: "soft"}))
+
+	function correctKeyPress(trialObject) {
+		// return the correct response key for one trial, the no condition is always spacebar
+		var correctKey = "";
+		switch(trialObject.motor) {
+			case "left middle": // 
+				if (trialObject.correctAnswer == true) {correctKey = leftMid} else {correctKey = "space"};
+				break;
+			case "left index":  
+				if (trialObject.correctAnswer == true) {correctKey = leftIdx} else {correctKey = "space"};
+				break;
+			case "right index": 
+				if (trialObject.correctAnswer == true) {correctKey = rightIdx} else {correctKey = "space"};
+				break;
+			case "right middle": // "No" on the left, "Yes" on the right
+				if (trialObject.correctAnswer == true) {correctKey = rightMid} else {correctKey = "space"};
+				break;
+		}
+		return correctKey
+	}
+	// console.log(correctKeyPress({logical:"different",
+	// firstAnswer: false,
+	// firstStim: "candy",
+	// responseCon: 1,
+	// secondAnswer: true,
+	// secondStim: "lips",
+	// semantic: "soft",
+	// correctJudgement: true}))
+
+	function genRepArray(object, nRep) {
+		// generate repetitive rule objects
+		var repArray = [];
+		for (var i = 0; i < nRep; i++) {
+			repArray.push(object)
+		}
+		return repArray
+	}
+	// console.log(genRepArray({logical:"both", semantic:"soft"}, 5))
+
+	function shuffleNTimes(array, numberofshuffle) {
+		var shuffledArray = [...array]; 
+		for (var i = 0; i < numberofshuffle; i++) {
+			shuffledArray = jsPsych.randomization.shuffleNoRepeats(shuffledArray);
+		}
+		return shuffledArray
+	}
+
+	function genInstruction(blockInfo) {
+		var instruction = {
+			type: 'instructions',
+			pages: [
+			'<p>For the next block, you will be judging the target words based on the following rules:</p>'+ 
+			'<p>' + blockInfo + '</p>' +
+			pracBlockInstruction
+			],
+			key_forward: 'spacebar',
+			post_trial_gap: 2000
+		}
+		return instruction
+	}
+
+	function genInstruction2(instructionText) {
+		var instruction = {
+			type: 'instructions',
+			pages: instructionText,
+			key_forward: 'spacebar',
+			post_trial_gap: 2000
+		}
+		return instruction		
+	}
+
+
+	function genFixation(duration){
+		var fixationObject = {
+            type: 'html-keyboard-response',
+            stimulus: '<span style="font-size:40px;">+</span>',
+            choices: jsPsych.NO_KEYS,
+            trial_duration: duration,
+            data: {
+                trial_part: 'fixation', 
+            }
+        };
+        return fixationObject
+	}
+
+	
+	function genBlock(stimPairArray, blockType, blockID) {
+		// show instruction
+		switch (blockType) {
+			case "prac":
+				var blockInstruction = '<p>' + stimPairArray[0].logical.toUpperCase() + '</p>' +
+				                       '<p>' + stimPairArray[0].semantic.toUpperCase() + '</p>' +
+				                       '<p>' + stimPairArray[0].motor.toUpperCase() + '</p>';
+
+				timeline.push(genInstruction(blockInstruction))
+				break;			
+			case "testCue":
+				timeline.push(genInstruction2(testCueInstruction))
+				break;
+			case "testNocue":
+				timeline.push(genInstruction2(testNoCueInstruction))
+				break;
+		}
+
+		// show fixation
+		timeline.push(genFixation(2000))
+
+		// show task cue for the prac block(4 individual task prac block)
+		switch (blockType) {
+			case "prac":
+				var task_cue = {
+					type: 'html-keyboard-response',
+					stimulus: `<div id= taskCue><p> ${stimPairArray[0].logical.toUpperCase()} </p><p> ${stimPairArray[0].semantic.toUpperCase()} </p><p> ${stimPairArray[0].motor.toUpperCase()} </p></div>`,
+					choices: jsPsych.NO_KEYS,
+					stimulus_duration: 3000,
+					trial_duration: 3000,
+				}
+
+		        timeline.push(task_cue)
+			    break;
+			case "testCue":
+				break;
+			case "testNocue":
+				break;
+		}
+
+		
+		// loop over each trial of the block
+		for (var i = 0; i < stimPairArray.length; i++) {
+
+			// show *task type cue* for testCue and testNocue blocks
+			switch (blockType) {
+				case "prac":
+					break;
+				case "testCue":
+					var tasktype_cue = {
+						type: 'html-keyboard-response',
+						stimulus: '<p><span style = "font-size:20px;">' + '* ' + stimPairArray[i].prac_or_novel + ' *' + '</span></p>',
+						choices: jsPsych.NO_KEYS,
+						stimulus_duration: 1000,
+						trial_duration: 1000 + jitter[i],
+						data: {
+							block_type:blockType,
+							block: blockID,
+							prac_or_novel: stimPairArray[i].prac_or_novel,
+							trial_part: "tasktype_cue",
+						}
+					}
+
+					timeline.push(tasktype_cue)
+					break;
+				case "testNocue":
+					var tasktype_cue = {
+						type: 'html-keyboard-response',
+						stimulus: '<p><span style = "font-size:20px;">* xxxxxx xxxx *</span></p>',					              
+						choices: jsPsych.NO_KEYS,
+						stimulus_duration: 1000,
+						trial_duration: 1000 + jitter[i],
+						data: {
+							block_type:blockType,
+							block: blockID,
+							prac_or_novel: stimPairArray[i].prac_or_novel,
+							trial_part: "tasktype_nocue",
+						}
+					}
+
+					timeline.push(tasktype_cue)
+					break;			
+			}
+
+			
+
+			// show task cue for testCue and testNocue blocks
+			if (blockType != "prac") {
+				var task_cue = {
+					type: 'html-keyboard-response',
+					stimulus: `<div id= taskCue><p> ${stimPairArray[i].logical.toUpperCase()} </p><p> ${stimPairArray[i].semantic.toUpperCase()} </p><p> ${stimPairArray[i].motor.toUpperCase()} </p></div>`,
+					choices: jsPsych.NO_KEYS,
+					stimulus_duration: 1000,
+					trial_duration: 1900
+				}
+				timeline.push(task_cue)
+			} else {};
+
+
+			// show fixation
+			// timeline.push(genFixation(1000))
+
+			// show stimuli
+			var stimulus = {
+				type : 'html-keyboard-response',
+				stimulus: '<p><span style = "font-size:20px;">' + stimPairArray[i].firstStim + '</span></p>' +
+				          '<p><span style = "font-size:20px;">' + stimPairArray[i].secondStim + '</span></p>',
+				choices: [leftMid, leftIdx, rightIdx, rightMid, 'spacebar'], 
+				stimulus_duration: 2500,
+				trial_duration: 2500,
+				post_trial_gap: function() {
+					ITI = 0;
+					if (blockType == "testCue" || blockType == "testNocue") {
+						ITI = 1000;
+					}
+					return ITI
+				},
+				data: {
+					block_type:       blockType,
+					block:            blockID,
+					prac_or_novel:    stimPairArray[i].prac_or_novel,
+					trial_num:        i+1,
+					logical_rule:     stimPairArray[i].logical,
+					semantic_rule:    stimPairArray[i].semantic,
+					motor_rule:       stimPairArray[i].motor,
+					trial_part:       "target",
+					first_stimuli:    stimPairArray[i].firstStim,
+					second_stimuli:   stimPairArray[i].secondStim,
+					first_answer:     stimPairArray[i].firstAnswer,
+					second_answer:    stimPairArray[i].secondAnswer,
+					correct_answer:   stimPairArray[i].correctAnswer,
+					correct_key:      stimPairArray[i].correctKey,
+				},
+		        
+		        on_finish: function(data) {
+		            var acc = false;
+		            if (data.correct_key == jsPsych.pluginAPI.convertKeyCodeToKeyCharacter(data.key_press)) {
+		                acc = true;
+		            }
+		            data.accuracy = acc;
+		            console.log(jsPsych.pluginAPI.convertKeyCodeToKeyCharacter(data.key_press))
+		        }		
+			}
+
+			timeline.push(stimulus);
+
+		    // show feedback after each trial only during the prac Block
+		    switch (blockType) {
+				case "prac":
+					var feedback = {
+			        type: 'html-keyboard-response',
+			        stimulus: function() {
+			            var feedback_text = '';
+			            var last_trial_rt = jsPsych.data.getLastTrialData().values()[0].rt;
+			            var last_resp_acc = jsPsych.data.getLastTrialData().values()[0].accuracy;
+			            if (last_trial_rt == null) {
+			                feedback_text += '<span style="font-size:20px;">Too slow!</span>';
+			            } else if(last_resp_acc == true) {
+			            	feedback_text += '<span style="font-size:20px;">Well done!</span>';
+			            } else {
+			            	feedback_text += '<span style="font-size:20px;">Incorrect!</span>';
+			            }
+			            return feedback_text;
+			            },
+			        choices: jsPsych.NO_KEYS,
+			        trial_duration: 750,
+			        post_trial_gap: 500
+			        }
+
+			        timeline.push(feedback)
+					break;
+				case "testCue":
+					break;
+				case "testNocue":
+					break;
+			}
+		}
+	}
+
+
+	/////////////////////////////////////////////////////////////////////////////////
+	//////////////////////////////// EXPERIMENT START ///////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////
+	var timeline = [];
+
+	///// consent /////
+	var consent = {
+		type: 'instructions',
+		pages: consentText,
+		show_clickable_nav: true,
+		button_label_next: "I agree", // need to translate to dutch
+		allow_backward: false
+	};
+	timeline.push(consent)
+
+
+	///// start full screen mode //////
+	timeline.push({
+	  type: 'fullscreen',
+	  fullscreen_mode: true
+	});		
+
+	///// register participants /////
+	var subjectID; 
+	var prolificID; 
+    if (justtest == false){
+        prolificID = jsPsych.data.getURLVariable('PROLIFIC_PID'); 
+        subjectID = jsPsych.randomization.randomID(8);
+    } else {
+        prolificID = "test_prolificID"; 
+        subjectID = "test_subjectID";        
+    }	
+
+
+
+    // register subject on MySQL //
+    var register_subject = {
+        type: jsPsychCallFunction,
+        async: true,
+        func: function(done) {
+            serverComm.register_subject(prolificID,
+                function(){ // this is the success callback, the function executes if the subject has a unique id
+                    done(console.log("Participant registered!"))
+                },
+                function(){ // this is the excluded callback, used if the subject's ID is already in the database: show excluded message
+                    done(document.querySelector('body').innerHTML = '<p style="color:white"> Our records indicate that you have already started this experiment. Due to the nature of the experiment, restarting is not permitted.</p><p style="color:black;">If you believe this message is in error, you can contact the researchers at mengqiao.chai@ugent.be. Apologies for the inconvenience.</p>')
+                },
+                function(){ // this is the failure callback. show technical error message.
+                    done(document.querySelector('body').innerHTML = '<p style="color:white"> Our apologies. There was a technical error on our end while loading the experiment.</p><p style="color:white;">You will not be able to complete the experiment. We are sorry for the trouble.</p>')
+                }
+            )
+        }
+    }
+
+    timeline.push(register_subject);
+    
+    // Assign condition //
+    // test session either start with task type cue(1) or task type no cue(0)
+    var assignCondition = {
+        type: jsPsychCallFunction,
+        async: true,
+        func: function (done) { // because this is an asynchronous function, exp will only continue after the 'done' statement is finished
+            
+            serverComm.assign_condition(subjectID, // function from serverComm.js
+                                        2, 
+							            function(response){ //if everything goes right
+							                var assigned_condition = response.assignedCondition;
+							                // console.log(assigned_condition);
+							            },
+						                function(){ // if something went wrong
+						                    document.querySelector('body').innerHTML = '<p style="color:white">Our apologies. There was a technical error on our end while loading the experiment.</p><p style="color:white">You will not be able to complete the experiment. We are sorry for the trouble.</p>';
+						                }
+            )
+
+        }
+    }
+
+    timeline.push(assignCondition); 
+
+	///// collect demographic information /////
+
+	var today = new Date();
+	var date = today.getFullYear() + '-' + (today.getMonth() + 1) + '-' + today.getDate();
+	var time = today.getHours() + ":" +today.getMinutes() + ":" + today.getSeconds(); 
+	// console.log(date, time)
+
+	var gender_options = ["male", "female", "others", "prefer not to say"];
+	
+	var demInfo_1 = {
+	  type: 'survey-multi-choice',
+	  questions: [
+	    {prompt: "What is your gender?", name: 'gender', options: ["male", "female", "others", "prefer not to say"], required:true},
+	    {prompt: "Are you right-handed or left-handed?", name: 'handedness', options: ['left-handed', 'right-handed'], required:true},
+	    {prompt: "What is your English-speaking level?", name: 'englishlevel', options: ['native', 'fluent', 'basic'], required:true}
+	    ]
+	};
+	timeline.push(demInfo_1)
+
+	var age_trial = {
+	  type: 'survey-text',
+	  questions: [
+	    {prompt: "How old are you?", name:'age', placeholder: "between 18 and 100"},
+	  ],
+	};
+	timeline.push(age_trial)
+
+
+	var add_dem_info = {
+		type: 'call-function',
+		func: function(){
+			jsPsych.data.addProperties({
+				subject: subjectID,
+				prolific: prolificID,
+				assigned_condition: assigned_condition,
+				date_open: date,
+				time_open: time,				
+				gender: JSON.parse(jsPsych.data.get().last(2).values()[0].responses)["gender"],
+				handedness: JSON.parse(jsPsych.data.get().last(2).values()[0].responses)["handedness"],
+				englishlevel: JSON.parse(jsPsych.data.get().last(2).values()[0].responses)["englishlevel"],
+				age:JSON.parse(jsPsych.data.get().last(1).values()[0].responses)["age"]
+			});
+		}
+	};
+	timeline.push(add_dem_info)
+
+	/////  Overall instruction /////
+    var overallInstructions = {
+        type: 'instructions',
+        pages: mainInstruction,
+        show_clickable_nav: true,
+        post_trial_gap: 1000
+    };
+    timeline.push(overallInstructions)
+
+
+   // detect visitor variables with the bowser js library (/js/bowser.js)
+	jsPsych.data.addProperties({ // add these variables to all rows of the datafile
+		browser_name: bowser.name, browser_version: bowser.version,
+		os_name: bowser.osname, os_version: bowser.osversion,
+		screen_resolution: screen.width + ' x ' + screen.height,
+		window_resolution: window.innerWidth + ' x ' + window.innerHeight, // this will be updated throughout the experiment
+	});
+
+
+	///////////////////////////////////////////////////////////////////////////////////
+	//////////////////////////////// Practice Blocks //////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////////
+
+	var blockLabels = ['prac_1', 'prac_2', 'prac_3', 'prac_4', 'prac_5', 'prac_6', 'prac_7', 'prac_8', 'test_1', 'test_2', 'test_3', 'test_4'];
+	var blockNum = ['first','second','third','fourth','fifth','sixth','seventh','eighth','nineth','tenth','eleventh','twelfth'];
+	const pracTaskId = [1,2,3,4];
+	var novelTaskId = [];
+	for (i=0; i<novelTasks.length; i++) {
+		novelTaskId.push(i+5)
+	}
+	// console.log(novelTaskId)
+
+
+	///// the first 8 practice blocks /////
+
+	var n_repeat = 2; // the number of block repeat
+
+	for(var i = 0; i < n_repeat; i++) {
+		// for each time of prac task repetition
+		for(var ii = 0; ii < pracTasks.length; ii++) {
+			var pracRuleArray = genRepArray(pracTasks[ii], nTrialsBlock);
+
+			// console.log(pracRuleArray)
+
+			var respList = genBalResp(nTrialsBlock);
+			// console.log(respList)
+			
+			var pracBlock = genStimPairArray(pracRuleArray, respList);
+			console.log("the " + blockNum[i * 4 + ii] + " practice block consist of the following trials:", pracBlock)
+
+			var blockLabel = blockLabels[i * 4 + ii];
+			genBlock(pracBlock,'prac', blockLabel);
+
+		    var save_data = {
+		        type: jsPsychCallFunction,
+		        async: true,
+		        func: function(done){
+		            data=jsPsych.data.get().filter({trial_part:"target"});
+		            console.log(data.values());
+		            done(serverComm.save_data(data.values()))
+		        }
+		    }
+		    timeline.push(save_data);
+			
+		}		
+	}	
+	 	
+    ///////////////////////////////////////////////////////////////
+    ////////////////////// Testing Section ////////////////////////
+    ///////////////////////////////////////////////////////////////
+	
+	////// defining the testing block structure /////	
+	const testSeq;
+	if(assigned_condition == 1) {
+		testSeq = ["testCue", "testNocue", "testCue", 'testNocue'];
+	} else {
+		testSeq = ["testNocue", "testCue", 'testNocue',"testCue"];
+	}
+	console.log(testSeq)
+
+	var TwoTestPracId = jsPsych.randomization.repeat(pracTaskId, 15);
+	var TwoTestTaskId = TwoTestPracId.concat(novelTaskId); // 60 practice and 60 novel
+	// console.log(TwoTestTaskId)
+
+	var shuffleTwoTestId = shuffleNTimes(TwoTestTaskId, 20);
+	// console.log(shuffleTwoTestId)
+
+	var shuffleTwoTestRule = genRuleArray(shuffleTwoTestId);
+	// console.log(shuffleTwoTestRule)
+
+	var twoTestRuleArray = genDisRuleArray(shuffleTwoTestRule.slice(0,60));
+	// console.log(twoTestRuleArray)
+
+
+	function genTwoTestRules() {
+		// generate 		
+		var firstTestNovelId = jsPsych.randomization.sampleWithoutReplacement(novelTaskId, 30);
+		var secondTestNovelId = novelTaskId.filter(x => !firstTestNovelId.includes(x));
+
+		var testPracId = jsPsych.randomization.repeat(pracTaskId, 7);
+		var twoExtraPracId = jsPsych.randomization.sampleWithoutReplacement(pracTaskId, 2);
+		var theOtherTwoPracId = pracTaskId.filter(x => !twoExtraPracId.includes(x));
+
+		var firstTestPracId = testPracId.concat(twoExtraPracId);
+		var secondTestPracId = testPracId.concat(theOtherTwoPracId);
+
+		var firstTestTaskId = firstTestNovelId.concat(firstTestPracId);
+		var secondTestTaskId = secondTestNovelId.concat(secondTestPracId);
+
+		var shuffleFirstTestId = shuffleNTimes(firstTestTaskId, 20);
+		// console.log(shuffleFirstTestId);
+		var shuffleSecondTestId = shuffleNTimes(secondTestTaskId, 20);
+		// console.log(shuffleSecondTestId);
+
+		// let intersection = shuffleFirstTestId.filter(x => shuffleSecondTestId.includes(x));
+		// console.log(intersection);
+		
+        var firstTestRule = genRuleArray(shuffleFirstTestId);
+        var secondTestRule = genRuleArray(shuffleSecondTestId);
+        var TwoTestRule = [firstTestRule, secondTestRule];		
+        // to avoid the rule overlapping between neigboring trials
+        // var finalFirstTestRule = genDisRuleArray(firstTestRule);
+        // var finalSecondTestRule = genDisRuleArray(secondTestRule);
+        // var finalTwoTestRule = [finalFirstTestRule, finalSecondTestRule];
+		return TwoTestRule // which is a array containing 2 arrays
+	}
+
+	// console.log(genTwoTestRules())
+
+	function genDisRuleArray(ruleArray) {
+		//  function of generating rule array without any overlapping of each rule dimensions
+		var overlap = neighborRuleOverlap(ruleArray);
+		var ruleArray_aux = [...ruleArray]; // ... is to spread
+
+		var accum = 0;
+		while (overlap == true && accum < 30) {
+			var ruleArray_aux = jsPsych.randomization.shuffleNoRepeats(ruleArray_aux);
+			overlap = neighborRuleOverlap(ruleArray_aux);
+			accum += 1;
+		};
+
+		return ruleArray_aux;
+	}
+
+	function addvector(a,b) {
+		return a.map((e,i) => e + b[i]);
+    }
+
+	function neighborRuleOverlap(ruleArray) {
+		//// the examine if, wiithin an array of rules(all 3 dimensions), there are overlapping rules across neigboring trials //// 
+		var logicalOverlapArray = [];
+		var semanticOverlapArray = [];
+		var motorOverlapArray = [];
+		for (var i = 0; i < ruleArray.length - 1; i++) {
+			// first evaluate if the logical rule of neighboring objects are the same
+			if (ruleArray[i].logical == ruleArray[i+1].logical) {
+				var logicalOverlap = true;
+			} else {
+				var logicalOverlap = false;				
+			};
+
+			// then evaluate if the semantic rule of neighboring objects are the same
+			if (ruleArray[i].semantic == ruleArray[i+1].semantic) {
+				var semanticOverlap = true;
+			} else {
+				var semanticOverlap = false;
+			};
+
+			// then evaluate if the motor rule of neighboring objects are the same
+			if (ruleArray[i].motor == ruleArray[i+1].motor) {
+				var motorOverlap = true;
+			} else {
+				var motorOverlap = false;
+			};
+
+			logicalOverlapArray.push(logicalOverlap);
+			semanticOverlapArray.push(semanticOverlap);
+			motorOverlapArray.push(motorOverlap);
+		}
+		
+		var allRuleOverlapArray = logicalOverlapArray.concat(semanticOverlapArray, motorOverlapArray);
+		// console.log(allRuleOverlapArray);
+		var overlap = allRuleOverlapArray.includes(true);
+		return overlap
+	}
+
+	// var testOverlapArray1 = [{logical: "either", semantic:"green"},
+	//                          {logical: "either", semantic:"soft"}, 
+	//                          {logical: "first", semantic:"loud"}, 
+	//                          {logical: "either", semantic:"sweet"}, 
+	//                          {logical: "neither", semantic:"soft"}];
+	// console.log(neighborRuleOverlap(testOverlapArray1))		
+
+   
+    jitter = [1000,1000,1000,1000,1000,1000,1000,
+                             1000,1000,1000,1000,1000,
+                             1400,1400,1400,1400,
+                             1400,1400,1400,1400,1400,1400,1400,
+                             1800,1800,1800,1800,1800,1800,1800,
+                             2200,2200,2200,2200,2200,2200,
+                             2600,2600,2600,2600,2600,2600,
+                             3000,3000,3000,3000,3000,3000,
+                             3400,3400,3400,3400,
+                             3800,3800,
+                             4200,4200,
+                             4600,4600,
+                             5000,5000];
+
+
+    //////////// Testing starts ///////////////
+
+	var overallTestInstruction = {
+        type: 'instructions',
+        pages: testMainInstruction,
+        show_clickable_nav: true,
+        post_trial_gap: 1000
+    };
+    timeline.push(overallTestInstruction)	
+
+
+	//////////// initiate all the testing blocks ///////////////
+
+	for(var ii=0; ii<2; ii++) {
+		var twoTestRules = genTwoTestRules();
+		var firstTestRules = twoTestRules[0];
+		var secondTestRules = twoTestRules[1];			
+		// console.log(testRuleArray)
+		// console.log(ii)
+
+		// start the first or third block
+		var firstTestBlock = genStimPairArray(firstTestRules, genBalResp(nTrialsBlock));
+		console.log("the " + blockNum[ii*2] + " test block consist of the following trials", firstTestBlock)
+		jitter = jsPsych.randomization.shuffle(jitter);
+		genBlock(firstTestBlock, testSeq[ii*2], blockLabels[ii*2+7]);
+
+		// start the second or fourth block
+		var secondTestBlock = genStimPairArray(secondTestRules, genBalResp(nTrialsBlock));
+		console.log("the " + blockNum[ii*2+1] + " test block consist of the following trials", secondTestBlock)
+		jitter = jsPsych.randomization.shuffle(jitter);
+		genBlock(secondTestBlock, testSeq[ii*2+1], blockLabels[ii*2+7+1]);
+	}
+
+	//////////// save data for all the testing block /////////////////
+	var storeDataTest = {
+        type: "call-function", 
+        func: function() {    
+            saveData(subjectID + "_" + 'test', jsPsych.data.get().filterCustom(function(element) {return element.block_type == 'testCue' || element.block_type == 'testNocue'}).csv());
+        }}
+	timeline.push(storeDataTest)
+
+
+    ////////////////// the ending survey ////////////////////////////
+
+	var scale_validity = ["not at all", "not much", "difficult to say", "a little", "very much"];
+    var scale_familiarity = ["much more difficult", "a little more difficult", "same in difficulty", "a little easier", "much more easier"];
+
+    var likert_validity = {
+	  type: 'survey-likert',
+	  questions: [
+	    {prompt: "During the second part of the experiment, do you think the task type cue (e.g. * novel task *) actually help you perform the task?", labels: scale_validity}
+	  ],
+	  data:{
+	  	trial_part: "survey_validity"
+	  },
+	  on_finish: function(data){
+	  	data.reponse = parseInt(data.responses.split('\":')[1].substring(0,1)) + 1;
+	  },
+	};
+	timeline.push(likert_validity)
+
+    var likert_familiarity = {
+	  type: 'survey-likert',
+	  questions: [
+	    {prompt: "Based on your subjective experience, the practiced tasks are ___ than novel tasks.", labels: scale_familiarity}
+	  ],
+	  data:{
+	  	trial_part: "survey_familiarity"
+	  },
+	  on_finish: function(data){
+	  	data.reponse = parseInt(data.responses.split('\":')[1].substring(0,1)) + 1;
+	  },
+	};
+	timeline.push(likert_familiarity)
+
+	//////////// save data for all the survey questions /////////////
+	var storeDataSurvey = {
+        type: "call-function", 
+        func: function() {    
+            saveData(subjectID + "_" + 'survey', jsPsych.data.get().last(2).csv());
+        }}
+	timeline.push(storeDataSurvey)
+
+	////////////////// The End of the experiment ////////////////////
+    var endMessage = {
+        type: 'instructions',
+        pages: endMessage,
+        show_clickable_nav: true,
+        post_trial_gap: 1000
+    };
+    timeline.push(endMessage)
+
+	jsPsych.init({
+		timeline: timeline
+	})
+
+</script>
